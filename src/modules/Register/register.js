@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import { Content, Form, Input, Item, Label } from 'native-base';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Image, Button, ActivityIndicator, Dimensions } from "react-native";
 import Icon from 'react-native-vector-icons/FontAwesome';
 import ValidationComponent from 'react-native-form-validator';
 
 import AuthContext from '../../../AuthContext';
+import Loader from '../../../loader';
 
 export default class App extends ValidationComponent {
 	
@@ -18,7 +19,8 @@ export default class App extends ValidationComponent {
 		  password: "",
 		  email: "",
 		  full_name: "",
-		  phone: ""
+		  phone: "",
+		  loading: false
 		};
 		
 		this._onPressButton = this._onPressButton.bind(this);
@@ -28,6 +30,9 @@ export default class App extends ValidationComponent {
 		let isValid = this.isValid();
 		
 		if (isValid) {
+			this.setState({
+			  loading: true
+			});
 			const AuthContext = this.context;
 			const signUp  = AuthContext.signUp;
 			let isSignedUp = await signUp( this.state );
@@ -36,6 +41,9 @@ export default class App extends ValidationComponent {
 				console.log("SignUp retorno true");
 				this.props.navigation.navigate('Activate');
 			}
+			this.setState({
+			  loading: false
+			});
 		}
 	}
 	
@@ -66,6 +74,7 @@ export default class App extends ValidationComponent {
 	  
     return (
       <View style={styles.container}>
+	  <Loader loading={this.state.loading}/>
         <Content>
           <Form>
             <Item floatingLabel>

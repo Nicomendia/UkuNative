@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Input, Item, Label } from 'native-base';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-community/async-storage';
 import { withNavigationFocus } from "react-navigation";
 
@@ -8,6 +8,7 @@ import ValidationComponent from 'react-native-form-validator';
 
 import Api from "../../../Api";
 import ApiTransaction from "../../../ApiTransaction";
+import SimpleNotify from '../../../simpleNotify';
 
 class App extends ValidationComponent {
 	constructor(props) {
@@ -18,10 +19,16 @@ class App extends ValidationComponent {
 		  id: "",
 		  connected: false,
 		  verified: false,
-		  isLoading: true
+		  isLoading: true,
+		  visible: false,
+		  message: ""
 		};
 		
 		this._onPressButton = this._onPressButton.bind(this);
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
 	}
 	
 	async componentDidMount() {
@@ -30,6 +37,12 @@ class App extends ValidationComponent {
 		  // The screen is focused
 		  // Call any action
 		  console.log("Hice click focus");
+		  this.setState({ 
+			id: "",
+		    connected: false,
+		    verified: false,
+		    isLoading: true
+		  });
 		  this.getUpholdStatus();
 		});
 	}
@@ -60,12 +73,14 @@ class App extends ValidationComponent {
 					console.log("getUpholdDetails: "+result.last_updated+" "+result.connected+" "+result.verified);
 					this.setState({ connected: result.connected,  verified: result.verified, isLoading: false, id: "" });
 				} else {
-					Alert.alert(result.detail);
+					//Alert.alert(result.detail);
+					this.setState({ visible: true, message: result.detail });
 				}
 			}
 			
 		} catch (e) {
 			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("Profile"));
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde." });
 			console.log(e);
 		}
 	}
@@ -85,13 +100,14 @@ class App extends ValidationComponent {
 	}
 	
 	render() {
-		let { id, connected, verified, isLoading } = this.state;
+		let { id, connected, verified, isLoading, visible, message } = this.state;
 		let link;
 	  
 		if (!isLoading) {
 			if (!connected || !verified) {
 				return (
 					<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}>
+						<SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
 						<Text>Su cuenta no está asociada a una cuenta de Uphold verificada.</Text>
 						<Text>Asocie una cuenta verificada para poder efectuar pagos</Text>
 						<TouchableOpacity onPress={() => this.props.navigation.navigate('Profile', { screen: 'Uphold' }) } >
@@ -102,6 +118,7 @@ class App extends ValidationComponent {
 			} else {
 				return (
 					<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}>
+					  <SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
 					  <Text style={{ fontSize: 17, color: 'grey', textAlign: 'center', margin : 20, padding : 10 }}>Por favor ingrese el Id del comercio o escanee el código QR</Text>
 					  
 					  <Item floatingLabel last>
@@ -119,7 +136,7 @@ class App extends ValidationComponent {
 				);
 			}
 		} else {
-			return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center'  }}><Text>Cargando...</Text></View>);
+			return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><ActivityIndicator size="large" color='#AFC037' /></View>);
 		} 
 	}
 }

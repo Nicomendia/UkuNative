@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Container, Header, Content, Form, Input, Picker, Item, Label } from 'native-base';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button, ActivityIndicator } from "react-native";
 import { CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-community/async-storage';
 
@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import ValidationComponent from 'react-native-form-validator';
 
 import ApiTransaction from "../../../ApiTransaction";
+import SimpleNotify from '../../../simpleNotify';
 
 export default class App extends ValidationComponent {
 	constructor(props) {
@@ -24,10 +25,24 @@ export default class App extends ValidationComponent {
 		  isOk: false,
 		  selectedCard: this.props.route.params.selectedCard,
 		  status: "Cargando...",
-		  transactionId: "Cargando..."
+		  transactionId: "Cargando...",
+		  visible: false,
+		  message: "",
+		  redirect: false
 		};
 		
 		this._onPressButton = this._onPressButton.bind(this);
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
+	}
+	
+	componentDidUpdate(prevProps, prevState) {
+	  if(prevState.visible && !this.state.visible && this.state.redirect){
+		  console.log("redirigiendo");
+		  this.props.navigation.navigate("FindSeller");
+	  }
 	}
 	
 	async componentDidMount() {
@@ -62,11 +77,13 @@ export default class App extends ValidationComponent {
 				this.setState({ isLoading: false, isOk: true, status: response.status, transactionId: response.id });
 				
 			} else {
-				Alert.alert(response.detail);
+				//Alert.alert(response.detail);
+				this.setState({ visible: true, message: response.detail });
 			}
 		} catch (e) {
-			Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("FindSeller"));
+			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("FindSeller"));
 			console.log(e);
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde.", redirect: true });
 		}
 	}
 	
@@ -122,7 +139,7 @@ export default class App extends ValidationComponent {
 	}*/
 	
   render() {
-	let { sellerId, sellerName, address, selectedCard, amount, isLoading, status, transactionId } = this.state;
+	let { sellerId, sellerName, address, selectedCard, amount, isLoading, status, transactionId, visible, message } = this.state;
 	let text, image, total, detail, button;
 	
 	if (isLoading) {
@@ -149,27 +166,32 @@ export default class App extends ValidationComponent {
 			detail = <Text>Id transacción: {transactionId}</Text>;
 		}
 	}
-	  
-    return (
-		<Container>
-				<Content>
-				  <Form>
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Datos del comercio</Label>
-					<View style={styles.readOnly}>
-						<Text style={styles.text}>Nombre: {sellerName+"\n"}Dirección: {address+"\n"}Id comercio: {sellerId}</Text>
-					</View>
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Datos de la operación</Label>
-					<View style={{flex: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center'}} >
-						{text}
-						{image}
-						{total}
-						{detail}
-						{button}
-					</View>
-				  </Form>
-				</Content>
-		</Container>
-    );
+	
+	if (!isLoading) {
+		return (
+			<Container>
+					<SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
+					<Content>
+					  <Form>
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Datos del comercio</Label>
+						<View style={styles.readOnly}>
+							<Text style={styles.text}>Nombre: {sellerName+"\n"}Dirección: {address+"\n"}Id comercio: {sellerId}</Text>
+						</View>
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Datos de la operación</Label>
+						<View style={{flex: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center'}} >
+							{text}
+							{image}
+							{total}
+							{detail}
+							{button}
+						</View>
+					  </Form>
+					</Content>
+			</Container>
+		);
+	} else {
+		return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><ActivityIndicator size="large" color='#AFC037' /></View>);
+	}
   }
 }
 

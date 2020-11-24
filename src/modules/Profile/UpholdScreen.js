@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Container, Header, Content, Form, Input, Item, Label } from 'native-base';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button, Platform, Linking } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button, Platform, Linking, ActivityIndicator } from "react-native";
 import AsyncStorage from '@react-native-community/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import ValidationComponent from 'react-native-form-validator';
 
 import ApiTransaction from "../../../ApiTransaction";
+import SimpleNotify from '../../../simpleNotify';
 
 export default class App extends ValidationComponent {
 	constructor(props) {
@@ -19,12 +20,26 @@ export default class App extends ValidationComponent {
 		  last_updated: "Cargando...",
 		  connected: false,
 		  verified: false,
-		  isLoading: true
+		  isLoading: true,
+		  visible: false,
+		  message: "",
+		  redirect: false
 		};
 		
 		this._onPressButtonDisconnect = this._onPressButtonDisconnect.bind(this);
 		this._onPressButtonConnect = this._onPressButtonConnect.bind(this);
 		this._onPressButtonUpdate = this._onPressButtonUpdate.bind(this);
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
+	}
+	
+	componentDidUpdate(prevProps, prevState) {
+	  if(prevState.visible && !this.state.visible && this.state.redirect){
+		  console.log("redirigiendo");
+		  this.props.navigation.navigate("Profile");
+	  }
 	}
 	
 	async componentDidMount() {
@@ -55,11 +70,13 @@ export default class App extends ValidationComponent {
 					console.log("getUpholdDetails: "+result.last_updated+" "+result.connected+" "+result.verified);
 					this.setState({ last_updated: result.last_updated, connected: result.connected, verified: result.verified, isLoading: false });
 				} else {
-					Alert.alert(result.detail);
+					//Alert.alert(result.detail);
+					this.setState({ visible: true, message: result.detail });
 				}
 			}			
 		} catch (e) {
-			Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("Profile"));
+			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("Profile"));
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", redirect: true });
 			console.log(e);
 		}
 	}
@@ -72,18 +89,20 @@ export default class App extends ValidationComponent {
 				
 				if (response.status==202) {
 					console.log("Uphold desconectado");
-					this.setState({ last_updated: "N/A", connected: false, verified: false });
-					Alert.alert("Su cuenta ya no se encuentra asociada a Uphold");
+					this.setState({ last_updated: "N/A", connected: false, verified: false, visible: true, message: "Su cuenta ya no se encuentra asociada a Uphold" });
+					//Alert.alert("Su cuenta ya no se encuentra asociada a Uphold");
 				} else {
 					const json = await response.json();
 					if(json.status_code!=null && json.detail!=null) {
-						Alert.alert(json.detail);
+						//Alert.alert(json.detail);
 						console.log("Fallo en desconeccion de Uphold");
+						this.setState({ visible: true, message: json.detail });
 					}
 				}
 			} catch (error) {
-				Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+				//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
 				console.log(error);
+				this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde." });
 				return false;
 			}
 		}
@@ -101,8 +120,9 @@ export default class App extends ValidationComponent {
 				
 				const result = await response.json();
 				if(result.status_code!=null && result.detail!=null) {
-					Alert.alert(result.detail);
+					//Alert.alert(result.detail);
 					console.log("Fallo en verificación de Uphold");
+					this.setState({ visible: true, message: result.detail });
 				} else {
 					console.log("getUpholdDetails: "+result.last_updated+" "+result.connected+" "+result.verified);
 					this.setState({ last_updated: result.last_updated, connected: result.connected, verified: result.verified, isLoading: false });
@@ -128,8 +148,9 @@ export default class App extends ValidationComponent {
 					}
 				}*/
 			} catch (error) {
-				Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+				//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
 				console.log(error);
+				this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde." });
 				return false;
 			}
 		}
@@ -162,23 +183,26 @@ export default class App extends ValidationComponent {
 					  <Text style={styles.buttonText} >Conectar{"\n"}Uphold</Text>
 					</TouchableOpacity>;
 		}
+		return (
+			<Container>
+					<Header style={{ backgroundColor: "#AFC037", height: 70, justifyContent: "space-around", alignItems: "center", paddingBottom: 10}} >
+						<Text style={{ color: '#fff', fontSize: 25, fontWeight: "bold" }}>Vinculación Uphold</Text>
+						<MaterialCommunityIcons name="menu" color={'#fff'} size={45} onPress={() => this.props.navigation.toggleDrawer()} />
+					</Header>
+					<Content>
+					  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+						  <Text style={{ fontSize: 17, color: 'red', textAlign: 'center', margin : 20, padding : 10 }}>{warning}</Text>
+						  <Text style={{ fontSize: 17, color: 'grey', textAlign: 'center', margin : 20, padding : 10 }}>{text}</Text>
+						  {button}
+					  </View>
+					</Content>
+			</Container>
+		);
+	} else {
+		return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><ActivityIndicator size="large" color='#AFC037' /></View>);
 	}
 	
-    return (
-		<Container>
-				<Header style={{ backgroundColor: "#AFC037", height: 70, justifyContent: "space-around", alignItems: "center", paddingBottom: 10}} >
-					<Text style={{ color: '#fff', fontSize: 25, fontWeight: "bold" }}>Vinculación Uphold</Text>
-					<MaterialCommunityIcons name="menu" color={'#fff'} size={45} onPress={() => this.props.navigation.toggleDrawer()} />
-				</Header>
-				<Content>
-				  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-					  <Text style={{ fontSize: 17, color: 'red', textAlign: 'center', margin : 20, padding : 10 }}>{warning}</Text>
-					  <Text style={{ fontSize: 17, color: 'grey', textAlign: 'center', margin : 20, padding : 10 }}>{text}</Text>
-					  {button}
-				  </View>
-				</Content>
-		</Container>
-    );
+    
   }
 }
 

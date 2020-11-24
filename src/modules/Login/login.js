@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-community/async-storage';
 import ValidationComponent from 'react-native-form-validator';
 
 import AuthContext from '../../../AuthContext';
+import SimpleNotify from '../../../simpleNotify';
 
 export default class App extends ValidationComponent {
 	
@@ -17,10 +18,24 @@ export default class App extends ValidationComponent {
 		  secure: true,
 		  icon: 'eye',
 		  email: "",
-		  password: ""
+		  password: "",
+		  visible: false,
+		  message: "",
+		  redirect: false
 		};
 		
 		this._onPressButton = this._onPressButton.bind(this);
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
+	}
+	
+	componentDidUpdate(prevProps, prevState) {
+	  if(prevState.visible && !this.state.visible && this.state.redirect){
+		  console.log("redirigiendo");
+		  this.props.navigation.navigate("SignIn");
+	  }
 	}
 		
 	async componentDidMount() {
@@ -36,7 +51,6 @@ export default class App extends ValidationComponent {
 			});
 			Linking.addEventListener('url', this.handleOpenURL);			
 		} catch (e) {
-			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("FindSeller"));
 			console.log(e);
 		}
 	}
@@ -63,16 +77,19 @@ export default class App extends ValidationComponent {
 					
 					if (response.status==200) {
 						console.log("Cuenta activa!");
-						Alert.alert("Muy bien!","Su cuenta ha sido activada exitosamente.", this.props.navigation.navigate("SignIn"));
+						//Alert.alert("Muy bien!","Su cuenta ha sido activada exitosamente.", this.props.navigation.navigate("SignIn"));
+						this.setState({ visible: true, message: "Muy bien! su cuenta ha sido activada exitosamente.", redirect: true });
 					} else {
 						const json = await response.json();
 						if(json.status_code!=null && json.detail!=null) {
-							Alert.alert(json.detail);
+							//Alert.alert(json.detail);
+							this.setState({ visible: true, message: json.detail });
 							console.log("Fallo de recuperacion password");
 						}
 					}
 				} catch (error) {
-					Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+					//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+					this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde" });
 					console.log(error);
 					return false;
 				}
@@ -82,6 +99,7 @@ export default class App extends ValidationComponent {
 		
 		// https://uku-pay.com/5fa20dbb90a90f6e1f8d7b512364417e80824991 cambio de password
 		// buscar el de activacion de cuenta al registrar.. de momento estoy asumiendo q sera tipo http://mobile.uku-pay.com/1a3s51d35a1sd351asd51
+		// https://uku-pay.com/bc2dce3e739d953f46c19b060e28b290b74e087d activacion de cuenta
 		
 	}
 	
@@ -97,7 +115,7 @@ export default class App extends ValidationComponent {
 	
 	isValid () {
 		return this.validate({
-		  email: {required: true},
+		  email: {email: true, required: true},
 		  password: {required: true}
 		});
 	}
@@ -112,11 +130,12 @@ export default class App extends ValidationComponent {
 	static contextType = AuthContext;
 	
   render() {
-	let { password, email } = this.state;
+	let { password, email, visible, message } = this.state;
 	  
     return (
       <View style={styles.container}>
-        <Content>
+        <SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
+		<Content>
 		  <Image source={require('../../../assets/logo-UKU-green.png')} style={styles.image}></Image>
 		  <Text style={{ fontSize: 16, color: "darkgrey", fontWeight: "bold", alignSelf: "center"}}>La nueva forma de pagar</Text>
           <Form>

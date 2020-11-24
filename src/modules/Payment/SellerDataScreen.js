@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Container, Header, Content, Form, Input, Item, Label } from 'native-base';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button, ActivityIndicator } from "react-native";
 import AsyncStorage from '@react-native-community/async-storage';
 
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import ValidationComponent from 'react-native-form-validator';
 
 import ApiTransaction from "../../../ApiTransaction";
+import SimpleNotify from '../../../simpleNotify';
 
 export default class App extends ValidationComponent {
 	constructor(props) {
@@ -20,10 +21,24 @@ export default class App extends ValidationComponent {
 		  category: "Cargando...",
 		  address: "Cargando...",
 		  isLoading: true,
-		  isOk: false
+		  isOk: false,
+		  visible: false,
+		  message: "",
+		  redirect: false
 		};
 		
 		this._onPressButton = this._onPressButton.bind(this);
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
+	}
+	
+	componentDidUpdate(prevProps, prevState) {
+	  if(prevState.visible && !this.state.visible && this.state.redirect){
+		  console.log("redirigiendo");
+		  this.props.navigation.navigate("FindSeller");
+	  }
 	}
 	
 	async componentDidMount() {
@@ -34,14 +49,16 @@ export default class App extends ValidationComponent {
 				console.log("seller data: "+result[0].name+" "+result[0].address+" "+result[0].categories[0].name);
 				this.setState({ sellerName: result[0].name, category: result[0].categories[0].name, address: result[0].address, isLoading: false, isOk: true });
 			} else if (result.status_code!=null && result.detail!=null){
-				Alert.alert(result.detail);
+				//Alert.alert(result.detail);
+				this.setState({ visible: true, message: result.detail });
 			} else {
-				this.setState({ sellerName: "Vendedor no encontrado", category: "Vendedor no encontrado", address: "Vendedor no encontrado", isLoading: false });
-				Alert.alert("No existe vendedor asociado con el código introducido", this.props.navigation.navigate("FindSeller"));
+				this.setState({ sellerName: "Vendedor no encontrado", category: "Vendedor no encontrado", address: "Vendedor no encontrado", isLoading: false, visible: true, message: "No existe vendedor asociado con el código introducido", redirect: true });
+				//Alert.alert("No existe vendedor asociado con el código introducido", this.props.navigation.navigate("FindSeller"));
 			}
 		} catch (e) {
-			Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("FindSeller"));
+			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("FindSeller"));
 			console.log(e);
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde.", redirect: true });
 		}
 	}
 	
@@ -53,36 +70,41 @@ export default class App extends ValidationComponent {
 	}
 	
   render() {
-	let { id, sellerName, category, address, isLoading } = this.state;
-	  
-    return (
-		<Container>
-				<Content>
-				  <Form>
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Nombre del comercio</Label>
-					<View style={styles.readOnly}>
-						<Text style={styles.text}>{sellerName}</Text>
-					</View>
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Categoría</Label>
-					<View style={styles.readOnly}>
-						<Text style={styles.text}>{category}</Text>
-					</View>
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Localidad</Label>
-					<View style={styles.readOnly}>
-						<Text style={styles.text}>{address}</Text>
-					</View>
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Identificador</Label>
-					<View style={styles.readOnly}>
-						<Text style={styles.text}>{id}</Text>
-					</View>
-					
-					<TouchableOpacity style={styles.button} onPress={this._onPressButton} >
-					  <Text style={styles.buttonText} >Siguiente</Text>
-					</TouchableOpacity>
-				  </Form>
-				</Content>
-		</Container>
-    );
+	let { id, sellerName, category, address, isLoading, visible, message } = this.state;
+	
+	if (!isLoading) {
+		return (
+			<Container>
+					<SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
+					<Content>
+					  <Form>
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Nombre del comercio</Label>
+						<View style={styles.readOnly}>
+							<Text style={styles.text}>{sellerName}</Text>
+						</View>
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Categoría</Label>
+						<View style={styles.readOnly}>
+							<Text style={styles.text}>{category}</Text>
+						</View>
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Localidad</Label>
+						<View style={styles.readOnly}>
+							<Text style={styles.text}>{address}</Text>
+						</View>
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Identificador</Label>
+						<View style={styles.readOnly}>
+							<Text style={styles.text}>{id}</Text>
+						</View>
+						
+						<TouchableOpacity style={styles.button} onPress={this._onPressButton} >
+						  <Text style={styles.buttonText} >Siguiente</Text>
+						</TouchableOpacity>
+					  </Form>
+					</Content>
+			</Container>
+		);
+	} else {
+		return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><ActivityIndicator size="large" color='#AFC037' /></View>);
+	}
   }
 }
 

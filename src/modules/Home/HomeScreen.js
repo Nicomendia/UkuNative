@@ -1,10 +1,12 @@
 import React, { Component } from 'react';
-import { StyleSheet, Alert, View, Text, TouchableOpacity, Button, FlatList } from 'react-native';
-import { List, ListItem, Left, Body, Right, Thumbnail } from "native-base";
+import { StyleSheet, Alert, View, Text, TouchableOpacity, Button, ActivityIndicator, FlatList, Dimensions } from 'react-native';
+import { List, ListItem, Left, Body, Right, Thumbnail, Card } from "native-base";
 import AsyncStorage from '@react-native-community/async-storage';
 import { format } from "date-fns";
 
 import ApiTransaction from "../../../ApiTransaction";
+import Loader from '../../../loader';
+import SimpleNotify from '../../../simpleNotify';
 
 export default class App extends Component {
 	constructor(props) {
@@ -17,8 +19,15 @@ export default class App extends Component {
 		  data: [],
 		  page: 1,
 		  isLoadingConection: true,
-		  isLoadingTransactions: true
+		  isLoadingTransactions: true,
+		  loading: false,
+		  visible: false,
+		  message: ""
 		};
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
 	}
 	
 	async componentDidMount() {
@@ -62,13 +71,15 @@ export default class App extends Component {
 					console.log("getUpholdDetails refresh: "+result.last_updated+" "+result.connected+" "+result.verified);
 					this.setState({ connected: result.connected, verified: result.verified, isLoadingConection: false });
 				} else {
-					Alert.alert(result.detail);
+					//Alert.alert(result.detail);
+					this.setState({ visible: true, message: result.detail });
 				}
 			}
 			
 			this.LoadTransactionData(userToken);	
 		} catch (e) {
-			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.", this.props.navigation.navigate("Profile"));
+			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde" });
 			console.log(e);
 		}
 	}
@@ -85,22 +96,28 @@ export default class App extends Component {
 			//if(!this.state.isLoadingTransactions && !) {
 				if (result.status_code==null && result.detail==null) {
 					this.setState({
-						isLoadingTransactions: false,
+						isLoadingTransactions: false, loading: false,
 						data: this.state.page === 1 ? result : [...this.state.data, ...result]
 					})
 				} else {
-					Alert.alert(result.detail);
+					//Alert.alert(result.detail);
+					this.setState({
+						loading: false, visible: true, message: result.detail
+					});
 				}
 			//}
+			
 		} catch (e) {
-			Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde" });
 			console.log(e);
 		}
 	}
 
 	LoadMoreTransactionData = () =>{
 		this.setState({
-			page:this.state.page+1
+			page:this.state.page+1,
+			loading: true
 		},()=>this.LoadTransactionData())
 	}
 	
@@ -113,57 +130,54 @@ export default class App extends Component {
 	  
 	  let { status } = item;
 	  
-	  if (status == "completed") { status = "completado"; }
-	  else if (status == "failed") { status = "falló"; }
-	  else if (status == "pending") { status = "pendiente"; }
+	  if (status == "completed") { status = <Text style={{ fontWeight: 'bold', color: '#67A254' }} note>Completado</Text>; }
+	  else if (status == "failed") { status = <Text style={{ fontWeight: 'bold', color: 'red' }} note>Falló</Text>; }
+	  else if (status == "pending") { status = <Text style={{ fontWeight: 'bold', color: 'orange' }} note>Pendiente</Text>; }
 	  
 	  return (
+		<Card style={{ backgroundColor: "#F5FFF5", margin: 3, borderRadius: 20 }}>
 		<ListItem avatar>
 			<Body>
-                <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#757575' }}>{item.company_name}</Text>
-				<Text note>{formattedDate}</Text>
-				<Text note>{formattedTime}</Text>
+                <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#555555' }}>{item.company_name}</Text>
+				<Text note>{formattedDate}, {formattedTime}</Text>
             </Body>
 			<Right>
-				<Text style={{ fontWeight: 'bold', fontSize: 17, color: '#757575' }}>Monto: ${Number(item.amount).toFixed(2)}</Text>
-				<Text note>{status}</Text>
-				<Text note>id Transacción: {item.id}</Text>
+				<Text style={{ fontWeight: 'bold', fontSize: 17, color: '#555555' }}>Monto: ${Number(item.amount).toFixed(2)}</Text>
+					{status}
+				<Text note>ID: {item.id}</Text>
             </Right>
         </ListItem>
+		</Card>
 	  );
 	}
-	
-	renderHeader = () => {
-		return (<View style={{ justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontWeight: 'bold', fontSize: 25, color: '#67A254', paddingTop: 30, paddingBottom: 10 }}>Historial de transacciones</Text></View>);
-	};
 	
 	keyExtractor = (item,index) => item.id.toString();
 
 	render() {
-		let { connected, verified, isLoadingConection, isLoadingTransactions } = this.state;
+		let { connected, verified, isLoadingConection, isLoadingTransactions, visible, message } = this.state;
 		let link, transactions;
 	  
 		if (!isLoadingConection && !isLoadingTransactions) {
 			if (!connected || !verified) {
 				link =
-					<View style={{ flex: 1, alignItems: 'center', backgroundColor: "orange", paddingLeft: 10, paddingTop: 5 }}>
+					<Card style={{ flex: 1, alignItems: 'center', backgroundColor: "orange", paddingLeft: 10, paddingTop: 5, paddingBottom: 10, height: 80, borderRadius: 20 }}>
 						<Text style={{ fontWeight: 'bold', fontSize: 16 }}>Su cuenta necesita estar asociada a una cuenta de Uphold verificada.</Text>
 						<TouchableOpacity onPress={() => this.props.navigation.navigate('Profile', { screen: 'Uphold' }) } >
 							<Text style={styles.underLineText}>Revisar</Text>
 						</TouchableOpacity>
-					</View>;
+					</Card>;
 			}
 			
 			if (this.state.data.length>0) {
 				transactions = 
 				<View style={{ flex: 5 }}>
-					<List>
+					<View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}><Text style={{ fontWeight: 'bold', fontSize: 25, color: '#67A254', paddingTop: 20, paddingBottom: 20 }}>Historial de transacciones</Text></View>
+					<List style={{ flex: 6 }}>
 					  <FlatList
 						data={this.state.data}
-						ListHeaderComponent={this.renderHeader}
 						renderItem={this.renderCustomItem}
 						keyExtractor={this.keyExtractor}
-						onEndReachedThreshold={1}
+						onEndReachedThreshold={0.5}
 						onEndReached={this.LoadMoreTransactionData}
 					  />
 					</List>
@@ -177,12 +191,18 @@ export default class App extends Component {
 
 		  return (
 			<View style={{ flex: 1, backgroundColor: "white", justifyContent: 'center' }}>
+				<SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
+				<Loader loading={this.state.loading}/>
+				<View style={{ backgroundColor: "#AFC037", height: 100, justifyContent: "space-around", alignItems: "center"}} >
+					<Text style={{ color: '#fff', fontSize: 35, fontWeight: "bold" }}>Bienvenido a UKU</Text>
+					<Text style={{ color: '#fff', fontSize: 20, fontWeight: "bold", paddingBottom: 10 }}>La nueva forma de pagar</Text>
+				</View>
 				{link}
 				{transactions}
 			</View>
 		  );
 		} else {
-			return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><Text>Cargando...</Text></View>);
+			return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><ActivityIndicator size="large" color='#AFC037' /></View>);
 		}
 		  
 	}

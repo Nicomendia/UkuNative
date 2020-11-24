@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Container, Header, Content, Form, Input, Item, Label } from 'native-base';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button } from "react-native";
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, Button, ActivityIndicator, Dimensions } from "react-native";
 import AsyncStorage from '@react-native-community/async-storage';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -9,6 +9,8 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import ValidationComponent from 'react-native-form-validator';
 
 import Api from "../../../Api";
+import Loader from '../../../loader';
+import SimpleNotify from '../../../simpleNotify';
 
 export default class App extends ValidationComponent {
 	constructor(props) {
@@ -19,10 +21,17 @@ export default class App extends ValidationComponent {
 		  email: "Cargando...",
 		  full_name: "Cargando...",
 		  phone: "Cargando...",
-		  isLoading: true
+		  isLoading: true,
+		  loading: false,
+		  visible: false,
+		  message: ""
 		};
 		
 		this._onPressButton = this._onPressButton.bind(this);
+	}
+	
+	handleNotify = (visible, message) => {
+		this.setState({visible: visible, message: message});
 	}
 	
 	async componentDidMount() {
@@ -33,10 +42,12 @@ export default class App extends ValidationComponent {
 				console.log("profile display: "+result.email+" "+result.profile.full_name+" "+result.profile.phone);
 				this.setState({ email: result.email, full_name: result.profile.full_name, phone: result.profile.phone, isLoading: false });
 			} else {
-				Alert.alert(result.detail);
+				//Alert.alert(result.detail);
+				this.setState({ visible: true, message: result.detail });
 			}
 		} catch (e) {
-			Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+			//Alert.alert("Alerta", "En estos momentos no podemos procesar su solicitud.\nPor favor intente más tarde.");
+			this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde" });
 			console.log(e);
 		}
 	}
@@ -46,17 +57,26 @@ export default class App extends ValidationComponent {
 		
 		if (isValid) {	
 			try {
+				this.setState({
+				  loading: true
+				});
 				let userToken = await AsyncStorage.getItem('userToken');
 				let response = await Api.updateProfile(userToken, this.state.full_name, this.state.phone);
 				
 				if (response.id!=null && response.status_code==null && response.detail==null) {
 					console.log("updateProfile: "+response);
-					Alert.alert("Cambios guardados con exito!");
+					//Alert.alert("Cambios guardados con exito!");
+					this.setState({ visible: true, message: "Cambios guardados con exito!" });
 				} else {
-					Alert.alert(response.detail);
+					//Alert.alert(response.detail);
+					this.setState({ visible: true, message: response.detail });
 				}
+				this.setState({
+				  loading: false
+				});
 			} catch (error) {
-				Alert.alert("En estos momentos no podemos procesar su solicitud. Por favor intente más tarde");
+				//Alert.alert("En estos momentos no podemos procesar su solicitud. Por favor intente más tarde");
+				this.setState({ visible: true, message: "En estos momentos no podemos procesar su solicitud. Por favor intente más tarde" });
 				console.log(error);
 				return false;
 			}
@@ -71,42 +91,48 @@ export default class App extends ValidationComponent {
 	}
 	
   render() {
-	let { email, full_name, phone, isLoading } = this.state;
+	let { email, full_name, phone, isLoading, visible, message } = this.state;
 	  
-    return (
-		<Container>
-			<Header style={{ backgroundColor: "#AFC037", height: 70, justifyContent: "space-around", alignItems: "center", paddingBottom: 10}} >
-				<Text style={{ color: '#fff', fontSize: 25, fontWeight: "bold" }}>Editar Perfil</Text>
-				<MaterialCommunityIcons name="menu" color={'#fff'} size={45} onPress={() => this.props.navigation.toggleDrawer()} />
-			</Header>
-				<Content>
-				  <Form>
-					<Item floatingLabel>
-					  <Label>Nombre Completo</Label>
-					  <Input value={full_name} onChangeText={ (full_name) => this.setState({ full_name }) } />
-					</Item>
-					{this.isFieldInError('full_name') && this.getErrorsInField('full_name').map((errorMessage, i) => <Text style={{color: "red"}} key={i}>{errorMessage}</Text>) }
-					<Item floatingLabel>
-					  <Label>Teléfono</Label>
-					  <Input value={phone} onChangeText={ (phone) => this.setState({ phone }) } />
-					</Item>
-					{this.isFieldInError('phone') && this.getErrorsInField('phone').map((errorMessage, i) => <Text style={{color: "red"}} key={i}>{errorMessage}</Text>) }
+    if (!isLoading) {
+		return (
+			<Container>
+				<SimpleNotify visible={visible} message={message} handleNotify={this.handleNotify} />
+				<Loader loading={this.state.loading}/>
+				<Header style={{ backgroundColor: "#AFC037", height: 70, justifyContent: "space-around", alignItems: "center", paddingBottom: 10}} >
+					<Text style={{ color: '#fff', fontSize: 25, fontWeight: "bold" }}>Editar Perfil</Text>
+					<MaterialCommunityIcons name="menu" color={'#fff'} size={45} onPress={() => this.props.navigation.toggleDrawer()} />
+				</Header>
+					<Content>
+					  <Form>
+						<Item floatingLabel>
+						  <Label>Nombre Completo</Label>
+						  <Input value={full_name} onChangeText={ (full_name) => this.setState({ full_name }) } />
+						</Item>
+						{this.isFieldInError('full_name') && this.getErrorsInField('full_name').map((errorMessage, i) => <Text style={{color: "red"}} key={i}>{errorMessage}</Text>) }
+						<Item floatingLabel>
+						  <Label>Teléfono</Label>
+						  <Input value={phone} onChangeText={ (phone) => this.setState({ phone }) } />
+						</Item>
+						{this.isFieldInError('phone') && this.getErrorsInField('phone').map((errorMessage, i) => <Text style={{color: "red"}} key={i}>{errorMessage}</Text>) }
 
 
-					<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Correo Electrónico</Label>
-					<View style={styles.emailSection}>
-						<Text style={styles.text}>{email}</Text>
-						<Icon style={styles.checkIcon} name="check" size={20} color="#67A254"/>
-					</View>
-					
-					
-					<TouchableOpacity style={styles.button} onPress={this._onPressButton} >
-					  <Text style={styles.buttonText} >Guardar</Text>
-					</TouchableOpacity>
-				  </Form>
-				</Content>
-		</Container>
-    );
+						<Label style={{marginTop: 15, marginLeft: 15, color: "grey"}}>Correo Electrónico</Label>
+						<View style={styles.emailSection}>
+							<Text style={styles.text}>{email}</Text>
+							<Icon style={styles.checkIcon} name="check" size={20} color="#67A254"/>
+						</View>
+						
+						
+						<TouchableOpacity style={styles.button} onPress={this._onPressButton} >
+						  <Text style={styles.buttonText} >Guardar</Text>
+						</TouchableOpacity>
+					  </Form>
+					</Content>
+			</Container>
+		);
+	} else {
+			return (<View style={{ flex: 1, alignItems: 'center', backgroundColor: "white", justifyContent: 'center' }}><ActivityIndicator size="large" color='#AFC037' /></View>);
+	}
   }
 }
 
